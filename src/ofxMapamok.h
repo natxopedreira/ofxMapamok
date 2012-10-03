@@ -46,11 +46,6 @@ public:
     void _mouseReleased(int x, int y, int button);
     void _keyPressed(int key);
     
-    //  Axis cam
-    //
-    void drawGrid(float scale, float ticks, bool labels, bool x, bool y, bool z);
-    void drawGridPlane(float scale, float ticks, bool labels);
-    
     //  Objects
     //
     ofxAssimpModelLoader model;
