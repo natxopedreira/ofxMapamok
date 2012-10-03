@@ -1,0 +1,9 @@
+ofxMapamok
+Version del mapamok en addon
+
+Requiere:
+* ofxCv
+* ofxXmlSettings
+
+Notas:
+* No estan implementadas la luces
