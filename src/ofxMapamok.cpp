@@ -300,7 +300,6 @@ void ofxMapamok::render(ofTexture &texture){
     if(useShader) {
 		shader.begin();
 		shader.setUniform1f("elapsedTime", ofGetElapsedTimef());
-        shader.setUniformTexture("tex0", texture, 0);
 		shader.end();
 	}
 
