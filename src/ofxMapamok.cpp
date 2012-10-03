@@ -58,7 +58,6 @@ void ofxMapamok::updateRenderMode() {
                           0, 0, 1);
     
 	// generate flags
-    //#define getFlag(flag) (panel.getValueB((#flag)) ? flag : 0)
 	int flags =
     CV_CALIB_USE_INTRINSIC_GUESS |
     //cvCALIB_FIX_PRINCIPAL_POINT |
