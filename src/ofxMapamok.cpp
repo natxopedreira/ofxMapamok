@@ -111,13 +111,16 @@ void ofxMapamok::updateRenderMode() {
 	}
 }
 void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg, ofColor fg) {
+    
+    if(!viewport.inside(position)) return;
+    
 	glPushAttrib(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
 	//glEnable(GL_DEPTH_TEST);
 	ofVec2f tooltipOffset(5, -25);
 	ofSetColor(color);
-	float w = ofGetWidth();
-	float h = ofGetHeight();
+	float w = 40;
+	float h = 40;
     
 	ofSetLineWidth(lineWidth);
 	ofLine(position - ofVec2f(w,0), position + ofVec2f(w,0));
@@ -206,10 +209,18 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 	
 	if(setupMode) {
 		// draw all points cyan small
-		glPointSize(screenPointSize);
-		glEnable(GL_POINT_SMOOTH);
+		//glPointSize(screenPointSize);
+		//glEnable(GL_POINT_SMOOTH);
+        // hago esto para saber si el vertex esta dentro del viewport
 		ofSetColor(cyanPrint);
-		imageMesh.drawVertices();
+        ofEnableSmoothing();
+        for(int i=0; i< imageMesh.getVertices().size(); i++){
+            if(viewport.inside(ofVec2f(imageMesh.getVertex(i).x,imageMesh.getVertex(i).y))){
+                ofCircle(imageMesh.getVertex(i).x, imageMesh.getVertex(i).y, 2);
+            }
+        }
+        ofDisableSmoothing();
+		//imageMesh.drawVertices();
         
 		// draw all reference points cyan
 		int n = referencePoints.size();
