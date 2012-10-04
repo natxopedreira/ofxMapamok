@@ -69,5 +69,7 @@ public:
 	Poco::Timestamp lastFragTimestamp, lastVertTimestamp;
 	ofShader shader;
     
+    ofRectangle viewport;
+    
 };
 #endif

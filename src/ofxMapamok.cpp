@@ -34,6 +34,10 @@ ofxMapamok::ofxMapamok(){
     
     useShader = false;
     
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = 800;
+    viewport.height = 600;
 }
 void ofxMapamok::loadShader(string _shader){
    useShader = shader.load(_shader);
@@ -99,6 +103,7 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 	ofSetColor(color);
 	float w = ofGetWidth();
 	float h = ofGetHeight();
+    
 	ofSetLineWidth(lineWidth);
 	ofLine(position - ofVec2f(w,0), position + ofVec2f(w,0));
 	ofLine(position - ofVec2f(0,h), position + ofVec2f(0,h));
@@ -164,7 +169,7 @@ void ofxMapamok::_keyPressed(int key) {
 
 void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 	ofSetColor(255);
-	cam.begin();
+	cam.begin(viewport);
     
     if(showAxis){
         ofDrawGrid(100);
@@ -177,6 +182,12 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		imageMesh = getProjectedMesh(objectMesh);
 	}
 	cam.end();
+    
+    ofPushStyle();
+    ofSetColor(255,255,255);
+    ofNoFill();
+    ofRect(viewport);
+    ofPopStyle();
 	
 	if(setupMode) {
 		// draw all points cyan small
@@ -338,7 +349,7 @@ void ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
 	int n = objectMesh.getNumVertices();
     if ( n != objectMesh.getNumTexCoords() ){
         cout << "ERROR: not same amount of texCoords for all vertices" << endl;
-    }
+    } 
     
     for(int i = 0; i < n; i++){
         float x = objectMesh.getTexCoords()[i].x;
