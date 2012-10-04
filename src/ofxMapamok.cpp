@@ -39,6 +39,21 @@ ofxMapamok::ofxMapamok(){
     viewport.width = 800;
     viewport.height = 600;
 }
+void ofxMapamok::saveCameraMatrix(){
+    posCamara = cam.getGlobalTransformMatrix();  
+    
+    ofFile outFile;  
+    outFile.open("posCamara.mat", ofFile::WriteOnly, true);    
+    outFile.write((char*) posCamara.getPtr(), sizeof(float) * 16);    
+    outFile.close();    
+}
+void ofxMapamok::loadCameraMatrix(){
+    ofFile inFile;  
+    inFile.open("posCamara.mat", ofFile::ReadOnly, true);    
+    inFile.read((char*) posCamara.getPtr(), sizeof(float) * 16);    
+    inFile.close();   
+    cam.setTransformMatrix(posCamara);
+}
 void ofxMapamok::loadShader(string _shader){
    useShader = shader.load(_shader);
 }

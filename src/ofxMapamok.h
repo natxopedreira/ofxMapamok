@@ -41,6 +41,8 @@ public:
 
     void loadMesh(string _daeModel, int _textWidth, int _textHeight);
     void saveCalibration(string _xmlfile);
+    void saveCameraMatrix();
+    void loadCameraMatrix();
     
     void _mousePressed(int x, int y, int button);
     void _mouseReleased(int x, int y, int button);
@@ -70,6 +72,7 @@ public:
 	ofShader shader;
     
     ofRectangle viewport;
+    ofMatrix4x4 posCamara;
     
 };
 #endif
