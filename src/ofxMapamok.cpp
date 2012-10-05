@@ -39,24 +39,11 @@ ofxMapamok::ofxMapamok(){
     viewport.width = 800;
     viewport.height = 600;
 }
-void ofxMapamok::saveCameraMatrix(){
-    posCamara = cam.getGlobalTransformMatrix();  
-    
-    ofFile outFile;  
-    outFile.open("posCamara.mat", ofFile::WriteOnly, true);    
-    outFile.write((char*) posCamara.getPtr(), sizeof(float) * 16);    
-    outFile.close();    
-}
-void ofxMapamok::loadCameraMatrix(){
-    ofFile inFile;  
-    inFile.open("posCamara.mat", ofFile::ReadOnly, true);    
-    inFile.read((char*) posCamara.getPtr(), sizeof(float) * 16);    
-    inFile.close();   
-    cam.setTransformMatrix(posCamara);
-}
+
 void ofxMapamok::loadShader(string _shader){
    useShader = shader.load(_shader);
 }
+
 void ofxMapamok::update(){
 	if(selectionMode) {
 		cam.enableMouseInput();
@@ -65,6 +52,7 @@ void ofxMapamok::update(){
 		cam.disableMouseInput();
 	}
 }
+
 void ofxMapamok::updateRenderMode() {
 	// generate camera matrix given aov guess
 	//float aov = getf("aov");
@@ -211,7 +199,9 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		// draw all points cyan small
 		//glPointSize(screenPointSize);
 		//glEnable(GL_POINT_SMOOTH);
-        // hago esto para saber si el vertex esta dentro del viewport
+        
+        //  Hago esto para saber si el vertex esta dentro del viewport
+        //
 		ofSetColor(cyanPrint);
         ofEnableSmoothing();
         for(int i=0; i< imageMesh.getVertices().size(); i++){
@@ -366,118 +356,77 @@ void ofxMapamok::render(ofTexture &texture){
 	glPopAttrib();
 	ofPopStyle();
 }
-void ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
-    /// cargamos el modelo
+
+bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
+    bool fileLoaded = false;
     
-    modelFile = _daeModel;
-	model.loadModel(modelFile);
-	objectMesh = model.getMesh(0);
-	int n = objectMesh.getNumVertices();
-    if ( n != objectMesh.getNumTexCoords() ){
-        cout << "ERROR: not same amount of texCoords for all vertices" << endl;
-    } 
-    
-    for(int i = 0; i < n; i++){
-        float x = objectMesh.getTexCoords()[i].x;
-        float y = objectMesh.getTexCoords()[i].y;
-        objectMesh.getTexCoords()[i] = ofVec2f( x*_textWidth, y*_textHeight);
-    }
-    
-	objectPoints.resize(n);
-	imagePoints.resize(n);
-	referencePoints.resize(n, false);
-	for(int i = 0; i < n; i++) {
-		objectPoints[i] = toCv(objectMesh.getVertex(i));
-	}
-    
-    /// intenta buscar la calibracion en el dae
-    ofxXmlSettings XML;
-    if (XML.loadFile(modelFile)){
-        if (XML.pushTag("MAPAMOK")){
-            
-            int total = XML.getNumTags("point");
-            for (int i = 0; i < total; i++) {
-                XML.pushTag("point",i);
-                if ( XML.getValue("calib", 1) ){
-                    Point2f& cur = imagePoints[i];
-                    referencePoints[i] = true;
-                    cur.x = XML.getValue("x", 0.0f);
-                    cur.y = XML.getValue("y", 0.0f);
-                    // cout << "Point " << i << " loaded at " << cur << endl;
-                }
-                XML.popTag();
-            }
+    //  Cargamos el modelo
+    //
+    ofxAssimpModelLoader model;
+	if (model.loadModel(_daeModel)){
+        
+        fileLoaded = true;
+        
+        //  Guardamos el nombre para después poder guardar los puntos calibrados como un XML
+        //
+        modelFile = _daeModel;
+        
+        objectMesh = model.getMesh(0);
+        
+        //  Checkeamos si la cantidad de vértices coincide con las coordenadas de textura
+        //
+        int n = objectMesh.getNumVertices();
+        if ( n != objectMesh.getNumTexCoords() ){
+            cout << "ERROR: not same amount of texCoords for all vertices" << endl;
         }
         
-        XML.popTag();
+        //  Ajustamos los coordenadas que estan normalizadas por el tamaño de la textura
+        //
+        for(int i = 0; i < n; i++){
+            float x = objectMesh.getTexCoords()[i].x;
+            float y = objectMesh.getTexCoords()[i].y;
+            objectMesh.getTexCoords()[i] = ofVec2f( x*_textWidth, y*_textHeight);
+        }
+        
+        //  Creamos y asignamos los valores a los vectores contienen los puntos del modelo y los projectados
+        //
+        objectPoints.resize(n);
+        imagePoints.resize(n);
+        referencePoints.resize(n, false);
+        for(int i = 0; i < n; i++) {
+            objectPoints[i] = toCv(objectMesh.getVertex(i));
+        }
+        
+        //  Vemos si ya posee una calibración previamente realizada guardada dentro del dae
+        //
+        ofxXmlSettings XML;
+        if (XML.loadFile(modelFile)){
+            
+            if (XML.pushTag("MAPAMOK")){
+                int total = XML.getNumTags("point");
+                for (int i = 0; i < total; i++) {
+                    XML.pushTag("point",i);
+                    if ( XML.getValue("calib", 1) ){
+                        Point2f& cur = imagePoints[i];
+                        referencePoints[i] = true;
+                        cur.x = XML.getValue("x", 0.0f);
+                        cur.y = XML.getValue("y", 0.0f);
+                    }
+                    XML.popTag();
+                }
+            }
+            
+            XML.popTag();
+        }
     }
 }
-void ofxMapamok::saveCalibration(string _folder) {
-	/*
-     entiendo que esto ya no es necesario porque no lo estamos usando
-    //  Create a folder to store the calibration files
+
+bool ofxMapamok::saveCalibration(string _folder) {
+    bool fileSaved = false;
+    
+    //  Guardamos a nuestro estilo la calibración dentro del .dae
     //
-	ofDirectory dir(_folder);
-	dir.create();
-	
-	FileStorage fs(ofToDataPath(_folder + "calibration-advanced.yml"), FileStorage::WRITE);
-    
-	Mat cameraMatrix = intrinsics.getCameraMatrix();
-	fs << "cameraMatrix" << cameraMatrix;
-	double focalLength = intrinsics.getFocalLength();
-	fs << "focalLength" << focalLength;
-	Point2d fov = intrinsics.getFov();
-	fs << "fov" << fov;
-	Point2d principalPoint = intrinsics.getPrincipalPoint();
-	fs << "principalPoint" << principalPoint;
-	cv::Size imageSize = intrinsics.getImageSize();
-	fs << "imageSize" << imageSize;
-	fs << "translationVector" << tvec;
-	fs << "rotationVector" << rvec;
-	Mat rotationMatrix;
-	Rodrigues(rvec, rotationMatrix);
-	fs << "rotationMatrix" << rotationMatrix;
-	double rotationAngleRadians = norm(rvec, NORM_L2);
-	double rotationAngleDegrees = ofRadToDeg(rotationAngleRadians);
-	Mat rotationAxis = rvec / rotationAngleRadians;
-	fs << "rotationAngleRadians" << rotationAngleRadians;
-	fs << "rotationAngleDegrees" << rotationAngleDegrees;
-	fs << "rotationAxis" << rotationAxis;
-	
-	ofVec3f axis(rotationAxis.at<double>(0), rotationAxis.at<double>(1), rotationAxis.at<double>(2));
-	ofVec3f euler = ofQuaternion(rotationAngleDegrees, axis).getEuler();
-	Mat eulerMat = (Mat_<double>(3,1) << euler.x, euler.y, euler.z);
-	fs << "euler" << eulerMat;
-	ofFile basic("calibration-basic.txt", ofFile::WriteOnly);
-	ofVec3f position( tvec.at<double>(1), tvec.at<double>(2));
-	basic << "position (in world units):" << endl;
-	basic << "\tx: " << ofToString(tvec.at<double>(0), 2) << endl;
-	basic << "\ty: " << ofToString(tvec.at<double>(1), 2) << endl;
-	basic << "\tz: " << ofToString(tvec.at<double>(2), 2) << endl;
-	basic << "axis-angle rotation (in degrees):" << endl;
-	basic << "\taxis x: " << ofToString(axis.x, 2) << endl;
-	basic << "\taxis y: " << ofToString(axis.y, 2) << endl;
-	basic << "\taxis z: " << ofToString(axis.z, 2) << endl;
-	basic << "\tangle: " << ofToString(rotationAngleDegrees, 2) << endl;
-	basic << "euler rotation (in degrees):" << endl;
-	basic << "\tx: " << ofToString(euler.x, 2) << endl;
-	basic << "\ty: " << ofToString(euler.y, 2) << endl;
-	basic << "\tz: " << ofToString(euler.z, 2) << endl;
-	basic << "fov (in degrees):" << endl;
-	basic << "\thorizontal: " << ofToString(fov.x, 2) << endl;
-	basic << "\tvertical: " << ofToString(fov.y, 2) << endl;
-	basic << "principal point (in screen units):" << endl;
-	basic << "\tx: " << ofToString(principalPoint.x, 2) << endl;
-	basic << "\ty: " << ofToString(principalPoint.y, 2) << endl;
-	basic << "image size (in pixels):" << endl;
-	basic << "\tx: " << ofToString(principalPoint.x, 2) << endl;
-	basic << "\ty: " << ofToString(principalPoint.y, 2) << endl;
-	
-	saveMat(Mat(objectPoints), _folder + "objectPoints.yml");
-	saveMat(Mat(imagePoints), _folder + "imagePoints.yml");
-    */
     ofxXmlSettings XML;
-    
     if (XML.loadFile(modelFile)){
         
         if (!XML.tagExists("MAPAMOK")){
@@ -510,8 +459,25 @@ void ofxMapamok::saveCalibration(string _folder) {
         
         XML.popTag();
         
-        XML.saveFile(modelFile);
+        fileSaved = XML.saveFile(modelFile);
     }
     
+    return fileSaved;
+}
+
+void ofxMapamok::saveCameraMatrix(){
+    posCamara = cam.getGlobalTransformMatrix();
     
+    ofFile outFile;
+    outFile.open("posCamara.mat", ofFile::WriteOnly, true);
+    outFile.write((char*) posCamara.getPtr(), sizeof(float) * 16);
+    outFile.close();
+}
+
+void ofxMapamok::loadCameraMatrix(){
+    ofFile inFile;
+    inFile.open("posCamara.mat", ofFile::ReadOnly, true);
+    inFile.read((char*) posCamara.getPtr(), sizeof(float) * 16);
+    inFile.close();
+    cam.setTransformMatrix(posCamara);
 }

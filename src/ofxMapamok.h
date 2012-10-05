@@ -38,9 +38,9 @@ public:
 	void drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg = ofColor::black, ofColor fg = ofColor::white);
 	void updateRenderMode();
 	
-
-    void loadMesh(string _daeModel, int _textWidth, int _textHeight);
-    void saveCalibration(string _xmlfile);
+    bool loadMesh(string _daeModel, int _textWidth, int _textHeight);
+    bool saveCalibration(string _xmlfile);
+    
     void saveCameraMatrix();
     void loadCameraMatrix();
     
@@ -50,29 +50,55 @@ public:
     
     //  Objects
     //
-    ofxAssimpModelLoader model;
-    ofEasyCam               cam;
-	ofVboMesh               objectMesh;
-	ofMesh                  imageMesh;
-    int textWidth, textHeight, lineWidth, drawMode, selectionChoice, hoverChoice, selectionRadius, screenPointSize, aov, selectedPointSize;
-    float slowLerpRate, fastLerpRate, scale;
-    ofColor faceColor;
+    ofRectangle         viewport;
+    
+    ofEasyCam           cam;
+	ofVboMesh           objectMesh;
+	ofMesh              imageMesh;
+    
+    ofShader            shader;
+    
+    string              modelFile;
+    
+    Poco::Timestamp     lastFragTimestamp,
+                        lastVertTimestamp;
+    
+    cv::Mat             rvec,tvec;
+	ofMatrix4x4         modelMatrix;
+    ofMatrix4x4         posCamara;
 	
-	vector<cv::Point3f>     objectPoints;
-	vector<cv::Point2f>     imagePoints;
-	vector<bool> referencePoints;
+    ofxCv::Intrinsics   intrinsics;
     
-    cv::Mat rvec, tvec;
-	ofMatrix4x4 modelMatrix;
-	ofxCv::Intrinsics intrinsics;
-	bool calibrationReady, selectionMode, useSmoothing, setupMode, selectedVert, dragging, arrowing, hoverSelected, showAxis, useShader;
+    vector<cv::Point3f> objectPoints;
+	vector<cv::Point2f> imagePoints;
+	vector<bool>        referencePoints;
+    
+    ofColor     faceColor;
+    
+    float       slowLerpRate,
+                fastLerpRate,
+                scale;
+    
+    int         textWidth,
+                textHeight,
+                lineWidth,
+                drawMode,
+                selectionChoice,
+                hoverChoice,
+                selectionRadius,
+                screenPointSize,
+                aov,
+                selectedPointSize;
 	
-    string  modelFile;
-	Poco::Timestamp lastFragTimestamp, lastVertTimestamp;
-	ofShader shader;
-    
-    ofRectangle viewport;
-    ofMatrix4x4 posCamara;
-    
+	bool        calibrationReady,
+                selectionMode,
+                useSmoothing,
+                setupMode,
+                selectedVert,
+                dragging,
+                arrowing,
+                hoverSelected,
+                showAxis,
+                useShader;
 };
 #endif
