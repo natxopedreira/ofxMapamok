@@ -37,7 +37,7 @@ ofxMapamok::ofxMapamok(){
     objName = "mapamok";
     bEditMode = false;
     
-    init(0,0,800,600);
+    init(0,0,ofGetWidth(),ofGetHeight());
 }
 
 //  ------------------------------------------ MAIN LOOP
@@ -359,9 +359,6 @@ void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
 	if(e.key == ' ') { // toggle render/select mode
         selectionMode = !selectionMode;
 	}
-    if(e.key == 'f'){
-        ofToggleFullscreen();
-    }
     if(e.key == 'e'){
         bEditMode = !bEditMode;
     }
