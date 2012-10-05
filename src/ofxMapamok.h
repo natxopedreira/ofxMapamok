@@ -11,6 +11,12 @@
 
 #include "ofMain.h"
 
+// Classes
+//
+#include "LineArt.h"
+#include "ofxProCamToolkit.h"
+#include "ofxSmartViewPort.h"
+
 //  Native addons
 //
 #include "ofxAssimpModelLoader.h"
@@ -20,38 +26,27 @@
 #include "ofxCv.h"
 #include "ofxXmlSettings.h"
 
-//  Other classes and methots
-//
-#include "LineArt.h"
-#include "ofxProCamToolkit.h"
-
-class ofxMapamok{
+class ofxMapamok : public ofxSmartViewPort {
 public:
     ofxMapamok();
     
+    bool loadMesh(string _daeModel, int _textWidth, int _textHeight);
+    bool saveCalibration(string _xmlfile = "none");
+    
+    void loadCameraMatrix();
+    void saveCameraMatrix();
+    
+    void loadShader(string _shader);
+    
     void update();
+    
     void draw(ofTexture &texture);
     void drawRenderMode(ofTexture &texture);
     void drawSelectionMode(ofTexture &texture);
-	void render(ofTexture &texture);
-    void loadShader(string _shader);
 	void drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg = ofColor::black, ofColor fg = ofColor::white);
-	void updateRenderMode();
 	
-    bool loadMesh(string _daeModel, int _textWidth, int _textHeight);
-    bool saveCalibration(string _xmlfile);
-    
-    void saveCameraMatrix();
-    void loadCameraMatrix();
-    
-    void _mousePressed(int x, int y, int button);
-    void _mouseReleased(int x, int y, int button);
-    void _keyPressed(int key);
-    
     //  Objects
     //
-    ofRectangle         viewport;
-    
     ofEasyCam           cam;
 	ofVboMesh           objectMesh;
 	ofMesh              imageMesh;
@@ -73,32 +68,39 @@ public:
 	vector<cv::Point2f> imagePoints;
 	vector<bool>        referencePoints;
     
-    ofColor     faceColor;
+    ofColor             faceColor;
     
-    float       slowLerpRate,
-                fastLerpRate,
-                scale;
+    float               slowLerpRate,
+                        fastLerpRate,
+                        scale;
     
-    int         textWidth,
-                textHeight,
-                lineWidth,
-                drawMode,
-                selectionChoice,
-                hoverChoice,
-                selectionRadius,
-                screenPointSize,
-                aov,
-                selectedPointSize;
+    int                 textWidth,
+                        textHeight,
+                        lineWidth,
+                        drawMode,
+                        selectionChoice,
+                        hoverChoice,
+                        selectionRadius,
+                        screenPointSize,
+                        aov,
+                        selectedPointSize;
 	
-	bool        calibrationReady,
-                selectionMode,
-                useSmoothing,
-                setupMode,
-                selectedVert,
-                dragging,
-                arrowing,
-                hoverSelected,
-                showAxis,
-                useShader;
+	bool                calibrationReady,
+                        selectionMode,
+                        useSmoothing,
+                        setupMode,
+                        selectedVert,
+                        dragging,
+                        arrowing,
+                        hoverSelected,
+                        showAxis,
+                        useShader;
+    
+private:
+    void    _mousePressed(ofMouseEventArgs &e);
+    void    _mouseReleased(ofMouseEventArgs &e);
+    void    _keyPressed(ofKeyEventArgs &e);
+    
+    void    render(ofTexture &texture);
 };
 #endif

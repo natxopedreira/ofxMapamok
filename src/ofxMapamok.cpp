@@ -7,8 +7,8 @@
 //
 #include "ofxMapamok.h"
 
-using namespace ofxCv;
-using namespace cv;
+//using namespace ofxCv;
+//using namespace cv;
 
 ofxMapamok::ofxMapamok(){
     lineWidth = 1;
@@ -34,73 +34,80 @@ ofxMapamok::ofxMapamok(){
     
     useShader = false;
     
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = 800;
-    viewport.height = 600;
+    objName = "mapamok";
+    bEditMode = false;
+    
+    init(0,0,800,600);
 }
 
-void ofxMapamok::loadShader(string _shader){
-   useShader = shader.load(_shader);
-}
+//  ------------------------------------------ MAIN LOOP
 
 void ofxMapamok::update(){
 	if(selectionMode) {
 		cam.enableMouseInput();
 	} else {
-		updateRenderMode();
+		
+        // generate camera matrix given aov guess
+        // float aov = getf("aov");
+        cv::Size2i imageSize(ofGetWidth(), ofGetHeight());
+        float f = imageSize.width * ofDegToRad(aov); // i think this is wrong, but it's optimized out anyway
+        cv::Point2f c = cv::Point2f(imageSize) * (1. / 2);
+        cv::Mat1d cameraMatrix = (cv::Mat1d(3, 3) <<
+                                  f, 0, c.x,
+                                  0, f, c.y,
+                                  0, 0, 1);
+        
+        // generate flags
+        int flags =
+        CV_CALIB_USE_INTRINSIC_GUESS |
+        //cvCALIB_FIX_PRINCIPAL_POINT |
+        CV_CALIB_FIX_ASPECT_RATIO |
+        CV_CALIB_FIX_K1 |
+        CV_CALIB_FIX_K2 |
+        CV_CALIB_FIX_K3 |
+        CV_CALIB_ZERO_TANGENT_DIST;
+        
+        
+        vector<cv::Mat> rvecs, tvecs;
+        cv::Mat distCoeffs;
+        vector<vector<cv::Point3f> > referenceObjectPoints(1);
+        vector<vector<cv::Point2f> > referenceImagePoints(1);
+        int n = referencePoints.size();
+        for(int i = 0; i < n; i++) {
+            if(referencePoints[i]) {
+                referenceObjectPoints[0].push_back(objectPoints[i]);
+                referenceImagePoints[0].push_back(imagePoints[i]);
+            }
+        }
+        const static int minPoints = 6;
+        if(referenceObjectPoints[0].size() >= minPoints) {
+            calibrateCamera(referenceObjectPoints, referenceImagePoints, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
+            rvec = rvecs[0];
+            tvec = tvecs[0];
+            intrinsics.setup(cameraMatrix, imageSize);
+            modelMatrix = ofxCv::makeMatrix(rvec, tvec);
+            calibrationReady = true;
+        } else {
+            calibrationReady = false;
+        }
+        
 		cam.disableMouseInput();
 	}
 }
 
-void ofxMapamok::updateRenderMode() {
-	// generate camera matrix given aov guess
-	//float aov = getf("aov");
-	Size2i imageSize(ofGetWidth(), ofGetHeight());
-	float f = imageSize.width * ofDegToRad(aov); // i think this is wrong, but it's optimized out anyway
-	Point2f c = Point2f(imageSize) * (1. / 2);
-	Mat1d cameraMatrix = (Mat1d(3, 3) <<
-                          f, 0, c.x,
-                          0, f, c.y,
-                          0, 0, 1);
-    
-	// generate flags
-	int flags =
-    CV_CALIB_USE_INTRINSIC_GUESS |
-    //cvCALIB_FIX_PRINCIPAL_POINT |
-    CV_CALIB_FIX_ASPECT_RATIO |
-    CV_CALIB_FIX_K1 |
-    CV_CALIB_FIX_K2 |
-    CV_CALIB_FIX_K3 |
-    CV_CALIB_ZERO_TANGENT_DIST;
-    
-	
-	vector<Mat> rvecs, tvecs;
-	Mat distCoeffs;
-	vector<vector<Point3f> > referenceObjectPoints(1);
-	vector<vector<Point2f> > referenceImagePoints(1);
-	int n = referencePoints.size();
-	for(int i = 0; i < n; i++) {
-		if(referencePoints[i]) {
-			referenceObjectPoints[0].push_back(objectPoints[i]);
-			referenceImagePoints[0].push_back(imagePoints[i]);
-		}
-	}
-	const static int minPoints = 6;
-	if(referenceObjectPoints[0].size() >= minPoints) {
-		calibrateCamera(referenceObjectPoints, referenceImagePoints, imageSize, cameraMatrix, distCoeffs, rvecs, tvecs, flags);
-		rvec = rvecs[0];
-		tvec = tvecs[0];
-		intrinsics.setup(cameraMatrix, imageSize);
-		modelMatrix = makeMatrix(rvec, tvec);
-		calibrationReady = true;
+// ------------------------------------------- RENDER
+
+void ofxMapamok::draw(ofTexture &texture){
+    if(selectionMode) {
+		drawSelectionMode(texture);
 	} else {
-		calibrationReady = false;
+		drawRenderMode(texture);
 	}
 }
+
 void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg, ofColor fg) {
     
-    if(!viewport.inside(position)) return;
+    if(!inside(position)) return;
     
 	glPushAttrib(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
@@ -114,68 +121,13 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 	ofLine(position - ofVec2f(w,0), position + ofVec2f(w,0));
 	ofLine(position - ofVec2f(0,h), position + ofVec2f(0,h));
 	ofCircle(position, selectedPointSize);
-	drawHighlightString(ofToString(label), position + tooltipOffset, bg, fg);
+    ofxCv::drawHighlightString(ofToString(label), position + tooltipOffset, bg, fg);
 	glPopAttrib();
-}
-void ofxMapamok::draw(ofTexture &texture){
-    if(selectionMode) {
-		drawSelectionMode(texture);
-	} else {
-		drawRenderMode(texture);
-	}
-}
-
-void ofxMapamok::_mousePressed(int x, int y, int button){
-	selectedVert = hoverSelected;
-	selectionChoice = hoverChoice;
-	if(selectedVert) {
-        dragging = true;
-	}
-}
-
-void ofxMapamok::_mouseReleased(int x, int y, int button){
-    dragging = false;
-}
-
-void ofxMapamok::_keyPressed(int key) {
-	if(key == OF_KEY_LEFT || key == OF_KEY_UP || key == OF_KEY_RIGHT|| key == OF_KEY_DOWN){
-		int choice = selectionChoice;
-        arrowing = true;
-		if(choice > 0){
-			Point2f& cur = imagePoints[choice];
-			switch(key) {
-				case OF_KEY_LEFT: cur.x -= 1; break;
-				case OF_KEY_RIGHT: cur.x += 1; break;
-				case OF_KEY_UP: cur.y -= 1; break;
-				case OF_KEY_DOWN: cur.y += 1; break;
-			}
-		}
-	} else {
-		arrowing = false;
-	}
-	if(key == OF_KEY_BACKSPACE) { // delete selected
-		if(selectedVert) {
-			selectedVert = false;
-			int choice = selectionChoice;
-			referencePoints[choice] = false;
-			imagePoints[choice] = Point2f();
-		}
-	}
-	if(key == '\n') { // deselect
-		selectedVert = false;
-	}
-	if(key == ' ') { // toggle render/select mode
-        selectionMode = !selectionMode;
-	}
-    if(key == 'f'){
-        ofToggleFullscreen();
-    }
-    
 }
 
 void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 	ofSetColor(255);
-	cam.begin(viewport);
+	cam.begin( (ofRectangle)*this );
     
     if(showAxis){
         ofDrawGrid(100);
@@ -192,7 +144,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
     ofPushStyle();
     ofSetColor(255,255,255);
     ofNoFill();
-    ofRect(viewport);
+    ofRect( (ofRectangle)*this );
     ofPopStyle();
 	
 	if(setupMode) {
@@ -202,10 +154,10 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
         
         //  Hago esto para saber si el vertex esta dentro del viewport
         //
-		ofSetColor(cyanPrint);
+		ofSetColor( ofxCv::cyanPrint );
         ofEnableSmoothing();
         for(int i=0; i< imageMesh.getVertices().size(); i++){
-            if(viewport.inside(ofVec2f(imageMesh.getVertex(i).x,imageMesh.getVertex(i).y))){
+            if( inside(ofVec2f(imageMesh.getVertex(i).x,imageMesh.getVertex(i).y))){
                 ofCircle(imageMesh.getVertex(i).x, imageMesh.getVertex(i).y, 2);
             }
         }
@@ -216,7 +168,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		int n = referencePoints.size();
 		for(int i = 0; i < n; i++) {
 			if(referencePoints[i]) {
-				drawLabeledPoint(i, imageMesh.getVertex(i), cyanPrint);
+				drawLabeledPoint(i, imageMesh.getVertex(i), ofxCv::cyanPrint );
 			}
 		}
 		
@@ -228,7 +180,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		if(!ofGetMousePressed() && distance < selectionRadius) {
 			hoverChoice = choice;
 			hoverSelected = true;
-			drawLabeledPoint(choice, selected, magentaPrint);
+			drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
 		} else {
             hoverSelected = false;
 		}
@@ -237,10 +189,11 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		if(selectedVert) {
 			int choice = selectionChoice;
 			ofVec2f selected = imageMesh.getVertex(choice);
-			drawLabeledPoint(choice, selected, yellowPrint, ofColor::white, ofColor::black);
+			drawLabeledPoint(choice, selected, ofxCv::yellowPrint, ofColor::white, ofColor::black);
 		}
 	}
 }
+
 void ofxMapamok::drawRenderMode(ofTexture &texture) {
 	glPushMatrix();
 	glMatrixMode(GL_PROJECTION);
@@ -249,7 +202,7 @@ void ofxMapamok::drawRenderMode(ofTexture &texture) {
 	
 	if(calibrationReady) {
 		intrinsics.loadProjectionMatrix(10, 2000);
-		applyMatrix(modelMatrix);
+		ofxCv::applyMatrix(modelMatrix);
 		render(texture);
 		if(setupMode) {
 			imageMesh = getProjectedMesh(objectMesh);
@@ -266,7 +219,7 @@ void ofxMapamok::drawRenderMode(ofTexture &texture) {
 		int n = referencePoints.size();
 		for(int i = 0; i < n; i++) {
 			if(referencePoints[i]) {
-				drawLabeledPoint(i, toOf(imagePoints[i]), cyanPrint);
+				drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::cyanPrint);
 			}
 		}
 		
@@ -275,44 +228,45 @@ void ofxMapamok::drawRenderMode(ofTexture &texture) {
 		int choice = selectionChoice;
 		if(selectedVert) {
 			referencePoints[choice] = true;
-			Point2f& cur = imagePoints[choice];
-			if(cur == Point2f()) {
+            cv::Point2f& cur = imagePoints[choice];
+			if(cur == cv::Point2f()) {
 				if(calibrationReady) {
-					cur = toCv(ofVec2f(imageMesh.getVertex(choice)));
+					cur = ofxCv::toCv(ofVec2f(imageMesh.getVertex(choice)));
 				} else {
-					cur = Point2f(ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY);
+					cur = cv::Point2f(ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY);
 				}
 			}
 		}
 		if(dragging) {
-			Point2f& cur = imagePoints[choice];
+            cv::Point2f& cur = imagePoints[choice];
 			float rate = ofGetMousePressed(0) ? slowLerpRate : fastLerpRate;
-			cur = Point2f(ofLerp(cur.x, ofGetAppPtr()->mouseX, rate), ofLerp(cur.y, ofGetAppPtr()->mouseY, rate));
-			drawLabeledPoint(choice, toOf(cur), yellowPrint, ofColor::white, ofColor::black);
+			cur = cv::Point2f(ofLerp(cur.x, ofGetAppPtr()->mouseX, rate), ofLerp(cur.y, ofGetAppPtr()->mouseY, rate));
+			drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
 			ofSetColor(ofColor::black);
-			ofRect(toOf(cur), 1, 1);
+			ofRect( ofxCv::toOf(cur), 1, 1);
 		} else if(arrowing) {
-			Point2f& cur = imagePoints[choice];
-			drawLabeledPoint(choice, toOf(cur), yellowPrint, ofColor::white, ofColor::black);
+            cv::Point2f& cur = imagePoints[choice];
+			drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
 			ofSetColor(ofColor::black);
-			ofRect(toOf(cur), 1, 1);
+			ofRect( ofxCv::toOf(cur), 1, 1);
         } else {
 			// check to see if anything is selected
 			// draw hover magenta
 			float distance;
-			ofVec2f selected = toOf(getClosestPoint(imagePoints, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance));
+			ofVec2f selected = ofxCv::toOf(getClosestPoint(imagePoints, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance));
 			if(!ofGetMousePressed() && referencePoints[choice] && distance < selectionRadius) {
 				hoverChoice = choice;
                 hoverSelected = true;
-				drawLabeledPoint(choice, selected, magentaPrint);
+				drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
 			} else {
 				hoverSelected = false;
 			}
 		}
 	}
 }
-void ofxMapamok::render(ofTexture &texture){
 
+void ofxMapamok::render(ofTexture &texture){
+    
     ofPushStyle();
 	ofSetLineWidth(lineWidth);
 	if(useSmoothing) {
@@ -329,7 +283,7 @@ void ofxMapamok::render(ofTexture &texture){
 		shader.setUniform1f("elapsedTime", ofGetElapsedTimef());
 		shader.end();
 	}
-
+    
     
 	switch(drawMode) {
 		case 0: // faces
@@ -355,6 +309,69 @@ void ofxMapamok::render(ofTexture &texture){
 	}
 	glPopAttrib();
 	ofPopStyle();
+}
+
+// ------------------------------------------------------- EVENTS
+
+void ofxMapamok::_mousePressed(ofMouseEventArgs &e){
+    selectedVert = hoverSelected;
+	selectionChoice = hoverChoice;
+	if(selectedVert) {
+        dragging = true;
+	}
+}
+
+void ofxMapamok::_mouseReleased(ofMouseEventArgs &e){
+    dragging = false;
+    
+    if (bEditMode){
+        init(x, y, width, height);
+    }
+}
+
+void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
+    if(e.key == OF_KEY_LEFT || e.key == OF_KEY_UP || e.key == OF_KEY_RIGHT|| e.key == OF_KEY_DOWN){
+		int choice = selectionChoice;
+        arrowing = true;
+		if(choice > 0){
+            cv::Point2f& cur = imagePoints[choice];
+			switch(e.key) {
+				case OF_KEY_LEFT: cur.x -= 1; break;
+				case OF_KEY_RIGHT: cur.x += 1; break;
+				case OF_KEY_UP: cur.y -= 1; break;
+				case OF_KEY_DOWN: cur.y += 1; break;
+			}
+		}
+	} else {
+		arrowing = false;
+	}
+	if(e.key == OF_KEY_BACKSPACE) { // delete selected
+		if(selectedVert) {
+			selectedVert = false;
+			int choice = selectionChoice;
+			referencePoints[choice] = false;
+			imagePoints[choice] = cv::Point2f();
+		}
+	}
+	if(e.key == '\n') { // deselect
+		selectedVert = false;
+	}
+	if(e.key == ' ') { // toggle render/select mode
+        selectionMode = !selectionMode;
+	}
+    if(e.key == 'f'){
+        ofToggleFullscreen();
+    }
+    if(e.key == 'e'){
+        bEditMode = !bEditMode;
+    }
+}
+
+
+// --------------------------------------------------- LOAD & SAVE
+
+void ofxMapamok::loadShader(string _shader){
+    useShader = shader.load(_shader);
 }
 
 bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
@@ -394,7 +411,7 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
         imagePoints.resize(n);
         referencePoints.resize(n, false);
         for(int i = 0; i < n; i++) {
-            objectPoints[i] = toCv(objectMesh.getVertex(i));
+            objectPoints[i] = ofxCv::toCv(objectMesh.getVertex(i));
         }
         
         //  Vemos si ya posee una calibración previamente realizada guardada dentro del dae
@@ -407,7 +424,7 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
                 for (int i = 0; i < total; i++) {
                     XML.pushTag("point",i);
                     if ( XML.getValue("calib", 1) ){
-                        Point2f& cur = imagePoints[i];
+                        cv::Point2f& cur = imagePoints[i];
                         referencePoints[i] = true;
                         cur.x = XML.getValue("x", 0.0f);
                         cur.y = XML.getValue("y", 0.0f);
@@ -421,13 +438,18 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
     }
 }
 
-bool ofxMapamok::saveCalibration(string _folder) {
+bool ofxMapamok::saveCalibration(string _xmlfile) {
     bool fileSaved = false;
     
-    //  Guardamos a nuestro estilo la calibración dentro del .dae
+    //  Si no se le pasa un .xml guarda la calibración dentro del .dae
+    //
+    if (_xmlfile == "none")
+        _xmlfile == modelFile;
+    
+    //  Guardamos a nuestro estilo la calibración
     //
     ofxXmlSettings XML;
-    if (XML.loadFile(modelFile)){
+    if (XML.loadFile(_xmlfile)){
         
         if (!XML.tagExists("MAPAMOK")){
             XML.addTag("MAPAMOK");
