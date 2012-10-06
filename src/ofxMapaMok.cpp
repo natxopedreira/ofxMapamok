@@ -1,13 +1,13 @@
 //
-//  ofxMapamok.cpp
+//  ofxMapaMok.cpp
 //  mapping
 //
 //  Created by ignacio pedreira gonzalez on 03/10/12.
 //  Copyright (c) 2012 __MyCompanyName__. All rights reserved.
 //
-#include "ofxMapamok.h"
+#include "ofxMapaMok.h"
 
-ofxMapamok::ofxMapamok(){
+ofxMapaMok::ofxMapaMok(){
     
     //  Public Default Properties
     //
@@ -44,7 +44,7 @@ ofxMapamok::ofxMapamok(){
 
 //  ------------------------------------------ MAIN LOOP
 
-void ofxMapamok::update(){
+void ofxMapaMok::update(){
     
 	if( setupMode == SETUP_SELECT ) {
 	
@@ -102,7 +102,7 @@ void ofxMapamok::update(){
 
 // ------------------------------------------- RENDER
 
-void ofxMapamok::draw(ofTexture *_texture){
+void ofxMapaMok::draw(ofTexture *_texture){
     
     if (_texture != NULL)
         if ((_texture->getWidth() != textWidth ) ||
@@ -293,7 +293,7 @@ void ofxMapamok::draw(ofTexture *_texture){
     }
 }
 
-void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg, ofColor fg) {
+void ofxMapaMok::drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg, ofColor fg) {
     
     if(!inside(position)) return;
     
@@ -313,7 +313,7 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 	glPopAttrib();
 }
 
-void ofxMapamok::render(ofTexture *_texture){
+void ofxMapaMok::render(ofTexture *_texture){
     
     ofPushStyle();
 	ofSetLineWidth(lineWidth);
@@ -374,7 +374,7 @@ void ofxMapamok::render(ofTexture *_texture){
 
 // ------------------------------------------------------- EVENTS
 
-void ofxMapamok::_mousePressed(ofMouseEventArgs &e){
+void ofxMapaMok::_mousePressed(ofMouseEventArgs &e){
     selectedVert = hoverSelected;
 	selectionChoice = hoverChoice;
 	if(selectedVert) {
@@ -382,7 +382,7 @@ void ofxMapamok::_mousePressed(ofMouseEventArgs &e){
 	}
 }
 
-void ofxMapamok::_mouseReleased(ofMouseEventArgs &e){
+void ofxMapaMok::_mouseReleased(ofMouseEventArgs &e){
     dragging = false;
     
     if (bEditMode){
@@ -390,7 +390,7 @@ void ofxMapamok::_mouseReleased(ofMouseEventArgs &e){
     }
 }
 
-void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
+void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
     if (inside(ofGetMouseX(), ofGetMouseY())){
     
         if(e.key == OF_KEY_LEFT || e.key == OF_KEY_UP || e.key == OF_KEY_RIGHT|| e.key == OF_KEY_DOWN){
@@ -466,7 +466,7 @@ void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
 
 
 // --------------------------------------------------- LOAD & SAVE
-bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
+bool ofxMapaMok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
     bool fileLoaded = false;
     
     //  Cargamos el modelo
@@ -517,7 +517,7 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
     }
 }
 
-bool ofxMapamok::loadCalibration(string _xmlfile) {
+bool ofxMapaMok::loadCalibration(string _xmlfile) {
     
     //  Vemos si ya posee una calibración previamente realizada guardada dentro del dae
     //
@@ -545,7 +545,7 @@ bool ofxMapamok::loadCalibration(string _xmlfile) {
     
 }
 
-bool ofxMapamok::saveCalibration(string _xmlfile) {
+bool ofxMapaMok::saveCalibration(string _xmlfile) {
     bool fileSaved = false;
     
     //  Si no se le pasa un .xml guarda la calibración dentro del .dae
@@ -594,7 +594,7 @@ bool ofxMapamok::saveCalibration(string _xmlfile) {
     return fileSaved;
 }
 
-void ofxMapamok::saveCameraMatrix(string _file){
+void ofxMapaMok::saveCameraMatrix(string _file){
     posCamara = cam.getGlobalTransformMatrix();
     
     ofFile outFile;
@@ -603,7 +603,7 @@ void ofxMapamok::saveCameraMatrix(string _file){
     outFile.close();
 }
 
-void ofxMapamok::loadCameraMatrix(string _file){
+void ofxMapaMok::loadCameraMatrix(string _file){
     ofFile inFile;
     inFile.open(_file, ofFile::ReadOnly, true);
     inFile.read((char*) posCamara.getPtr(), sizeof(float) * 16);

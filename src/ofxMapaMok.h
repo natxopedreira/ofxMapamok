@@ -45,9 +45,9 @@ enum RefMode{
     REFERENCE_GRID
 };
 
-class ofxMapamok : public ofxSmartViewPort {
+class ofxMapaMok : public ofxSmartViewPort {
 public:
-    ofxMapamok();
+    ofxMapaMok();
     
     bool loadMesh(string _daeModel, int _textWidth, int _textHeight);
     
