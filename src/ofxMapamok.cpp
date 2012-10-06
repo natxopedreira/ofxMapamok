@@ -7,48 +7,52 @@
 //
 #include "ofxMapamok.h"
 
-//using namespace ofxCv;
-//using namespace cv;
-
 ofxMapamok::ofxMapamok(){
-    lineWidth = 1;
     
+    //  Public Default Properties
+    //
+    setupMode   = SETUP_SELECT;
+    refMode     = REFERENCE_AXIS;
+    drawMode    = DRAW_OCCLUDED_WIREFRAME;
+    
+    faceColor.set(80, 155);
+    
+    scale = 1.;
+    lineWidth = 1;
     selectionRadius = 10;
     screenPointSize = 2;
     selectedPointSize = 3;
-    aov = 80;
-    
     slowLerpRate = .001;
     fastLerpRate = 1.;
-    scale = 1.;
     
+    
+    //  Private Defaul Properties ( the user don't need to have acces to them )
+    //
+    aov = 80;   // No se que es esto. Vos?
     selectedVert = false;
     hoverSelected = false;
     dragging = false;
     arrowing = false;
-    
-    setupMode   = SETUP_SELECT;
-    refMode     = REFERENCE_AXIS;
-    drawMode    = DRAW_OCCLUDED_WIREFRAME;
-        
-    faceColor.set(80, 155);
-    
-    objName = "mapamok";
-    bEditMode = false;
-    
     shader = NULL;
     
+    //  ViewPort default setup
+    //
     init(0,0,ofGetWidth(),ofGetHeight());
+    objName = "mapamok";
+    bEditMode = false;
 }
 
 //  ------------------------------------------ MAIN LOOP
 
 void ofxMapamok::update(){
+    
 	if( setupMode == SETUP_SELECT ) {
-		cam.enableMouseInput();
-	} else {
+	
+        cam.enableMouseInput();
+	
+    } else {
 		
-        // generate camera matrix given aov guess
+        //  Generate camera matrix given aov guess
         //
         cv::Size2i imageSize(ofGetWidth(), ofGetHeight());
         float f = imageSize.width * ofDegToRad(aov); // i think this is wrong, but it's optimized out anyway
@@ -58,7 +62,7 @@ void ofxMapamok::update(){
                                   0, f, c.y,
                                   0, 0, 1);
         
-        // generate flags
+        //  Generate flags
         //
         int flags =
         CV_CALIB_USE_INTRINSIC_GUESS |
@@ -68,7 +72,6 @@ void ofxMapamok::update(){
         CV_CALIB_FIX_K2 |
         CV_CALIB_FIX_K3 |
         CV_CALIB_ZERO_TANGENT_DIST;
-        
         
         vector<cv::Mat> rvecs, tvecs;
         cv::Mat distCoeffs;
@@ -100,6 +103,12 @@ void ofxMapamok::update(){
 // ------------------------------------------- RENDER
 
 void ofxMapamok::draw(ofTexture *_texture){
+    
+    if (_texture != NULL)
+        if ((_texture->getWidth() != textWidth ) ||
+            (_texture->getHeight() != textHeight) )
+            ofLog(OF_LOG_WARNING, "The applied texture have a diferent size of the one spected");
+    
     if( setupMode == SETUP_SELECT ) {
     
 		//  Init easyCam
@@ -117,18 +126,24 @@ void ofxMapamok::draw(ofTexture *_texture){
         //
         ofScale(scale, scale, scale);
         
+        //  Render
+        //
         render(_texture);
         
+        //  Update dots positions
+        //
         if( setupMode ) {
             imageMesh = getProjectedMesh(objectMesh);
         }
         
         cam.end();
         
+        //  On any tipe of setup mode
+        //
         if( setupMode ) {
             ofPushStyle();
             
-            // draw all points cyan small
+            //  Draw all points cyan small
             //
             ofSetColor( ofxCv::cyanPrint );
             for(int i=0; i< imageMesh.getVertices().size(); i++){
@@ -137,7 +152,7 @@ void ofxMapamok::draw(ofTexture *_texture){
                 }
             }
             
-            // draw all reference points cyan
+            //  Draw all reference points cyan
             //
             int n = referencePoints.size();
             for(int i = 0; i < n; i++) {
@@ -146,8 +161,8 @@ void ofxMapamok::draw(ofTexture *_texture){
                 }
             }
             
-            // check to see if anything is selected
-            // draw hover point magenta
+            //  Check to see if anything is selected
+            //  Draw hover point magenta
             //
             int choice;
             float distance;
@@ -160,7 +175,7 @@ void ofxMapamok::draw(ofTexture *_texture){
                 hoverSelected = false;
             }
             
-            // draw selected point yellow
+            //  Draw selected point yellow
             //
             if( selectedVert ) {
                 int choice = selectionChoice;
@@ -173,24 +188,32 @@ void ofxMapamok::draw(ofTexture *_texture){
         
 	} else {
 		
-        glPushMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glMatrixMode(GL_MODELVIEW);
-        
-        if(calibrationReady) {
+        if ( calibrationReady ) {
+            glPushMatrix();
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            
+            
             intrinsics.loadProjectionMatrix(10, 2000);
             ofxCv::applyMatrix(modelMatrix);
             render(_texture);
             if(setupMode) {
                 imageMesh = getProjectedMesh(objectMesh);
             }
+            
+            
+            glPopMatrix();
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            
+        } else {
+            
+            ofDrawBitmapString("CALIBRATION NOT READY", x+width*0.5-80, y+height*0.5 );
+            ofDrawBitmapString("(you need to set more dots)", x+width*0.5-100, y+height*0.5 + 15);
+            
         }
-        
-        glPopMatrix();
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
         
         if( setupMode ) {
             ofPushStyle();
@@ -257,12 +280,12 @@ void ofxMapamok::draw(ofTexture *_texture){
             ofNoFill();
             ofRect( (ofRectangle)*this );
             if ( setupMode == SETUP_CALIBRATE)
-                ofDrawBitmapString("CALIBRATE the DOT", x+width*0.5-30,y+15);
+                ofDrawBitmapString("CALIBRATE the DOT", x+width*0.5-80,y+15);
             else if ( setupMode == SETUP_SELECT ){
                 if (selectedVert)
                     ofDrawBitmapString("PRESS SPACE to CALIBRATE", x+width*0.5-100,y+15);
                 else
-                    ofDrawBitmapString("CLICK ONE DOT", x+width*0.5-40,y+15);
+                    ofDrawBitmapString("CLICK ONE DOT", x+width*0.5-60,y+15);
             }
             
             ofPopStyle();
@@ -451,6 +474,9 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
     ofxAssimpModelLoader model;
 	if (model.loadModel(_daeModel)){
         
+        textWidth = _textWidth;
+        textHeight = _textHeight;
+        
         fileLoaded = true;
         
         //  Guardamos el nombre para después poder guardar los puntos calibrados como un XML
@@ -471,7 +497,11 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
         for(int i = 0; i < n; i++){
             float x = objectMesh.getTexCoords()[i].x;
             float y = objectMesh.getTexCoords()[i].y;
-            objectMesh.getTexCoords()[i] = ofVec2f( x*_textWidth, y*_textHeight);
+            
+            if ( (x > 1) || (y > 1) || (x < -1) || (y < -1))
+                ofLog(OF_LOG_WARNING,"TexCoord " + ofToString(i) + " it's out of normalized values");
+            
+            objectMesh.getTexCoords()[i] = ofVec2f( x*textWidth, y*textHeight);
         }
         
         //  Creamos y asignamos los valores a los vectores contienen los puntos del modelo y los projectados
@@ -483,28 +513,36 @@ bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
             objectPoints[i] = ofxCv::toCv(objectMesh.getVertex(i));
         }
         
-        //  Vemos si ya posee una calibración previamente realizada guardada dentro del dae
-        //
-        ofxXmlSettings XML;
-        if (XML.loadFile(modelFile)){
-            
-            if (XML.pushTag("MAPAMOK")){
-                int total = XML.getNumTags("point");
-                for (int i = 0; i < total; i++) {
-                    XML.pushTag("point",i);
-                    if ( XML.getValue("calib", 1) ){
-                        cv::Point2f& cur = imagePoints[i];
-                        referencePoints[i] = true;
-                        cur.x = XML.getValue("x", 0.0f);
-                        cur.y = XML.getValue("y", 0.0f);
-                    }
-                    XML.popTag();
-                }
-            }
-            
-            XML.popTag();
-        }
+        loadCalibration(modelFile);
     }
+}
+
+bool ofxMapamok::loadCalibration(string _xmlfile) {
+    
+    //  Vemos si ya posee una calibración previamente realizada guardada dentro del dae
+    //
+    ofxXmlSettings XML;
+    if (XML.loadFile(_xmlfile)){
+        
+        if (XML.tagExists("MAPAMOK")){
+            ofLog(OF_LOG_NOTICE,"Loading MapaMok calibration found at " + modelFile );
+            XML.pushTag("MAPAMOK");
+            int total = XML.getNumTags("point");
+            for (int i = 0; i < total; i++) {
+                XML.pushTag("point",i);
+                if ( XML.getValue("calib", 1) ){
+                    cv::Point2f& cur = imagePoints[i];
+                    referencePoints[i] = true;
+                    cur.x = XML.getValue("x", 0.0f);
+                    cur.y = XML.getValue("y", 0.0f);
+                }
+                XML.popTag();
+            }
+        }
+        
+        XML.popTag();
+    }
+    
 }
 
 bool ofxMapamok::saveCalibration(string _xmlfile) {
@@ -556,18 +594,18 @@ bool ofxMapamok::saveCalibration(string _xmlfile) {
     return fileSaved;
 }
 
-void ofxMapamok::saveCameraMatrix(){
+void ofxMapamok::saveCameraMatrix(string _file){
     posCamara = cam.getGlobalTransformMatrix();
     
     ofFile outFile;
-    outFile.open("posCamara.mat", ofFile::WriteOnly, true);
+    outFile.open(_file, ofFile::WriteOnly, true);
     outFile.write((char*) posCamara.getPtr(), sizeof(float) * 16);
     outFile.close();
 }
 
-void ofxMapamok::loadCameraMatrix(){
+void ofxMapamok::loadCameraMatrix(string _file){
     ofFile inFile;
-    inFile.open("posCamara.mat", ofFile::ReadOnly, true);
+    inFile.open(_file, ofFile::ReadOnly, true);
     inFile.read((char*) posCamara.getPtr(), sizeof(float) * 16);
     inFile.close();
     cam.setTransformMatrix(posCamara);

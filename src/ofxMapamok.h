@@ -50,10 +50,12 @@ public:
     ofxMapamok();
     
     bool loadMesh(string _daeModel, int _textWidth, int _textHeight);
-    bool saveCalibration(string _xmlfile = "none");
     
-    void loadCameraMatrix();
-    void saveCameraMatrix();
+    bool loadCalibration(string _xmlfile );
+    bool saveCalibration(string _xmlfile = "none"); // IF NONE will save it inside the _daeModel
+    
+    void loadCameraMatrix(string _file = "camera.mat");
+    void saveCameraMatrix(string _file = "camera.mat");
     
     void linkShader(ofShader *_shader){ shader = _shader; }
     
