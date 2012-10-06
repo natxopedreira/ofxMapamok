@@ -55,13 +55,11 @@ public:
     void loadCameraMatrix();
     void saveCameraMatrix();
     
-    void loadShader(string _shader);
+    void linkShader(ofShader *_shader){ shader = _shader; }
     
     void update();
     
-    void draw(ofTexture &texture);
-    void drawRenderMode(ofTexture &texture);
-    void drawSelectionMode(ofTexture &texture);
+    void draw(ofTexture *_texture = NULL);
 	
     //  Properties
     //
@@ -82,21 +80,19 @@ public:
                 screenPointSize,
                 selectedPointSize;
 	
-	bool        useSmoothing;
-    
 private:
     void    _mousePressed(ofMouseEventArgs &e);
     void    _mouseReleased(ofMouseEventArgs &e);
     void    _keyPressed(ofKeyEventArgs &e);
     
     void    drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg = ofColor::black, ofColor fg = ofColor::white);
-    void    render(ofTexture &texture);
+    void    render(ofTexture *_texture = NULL);
     
     ofEasyCam           cam;
 	ofVboMesh           objectMesh;
 	ofMesh              imageMesh;
     
-    ofShader            shader;
+    ofShader            *shader;
     
     Poco::Timestamp     lastFragTimestamp,
     lastVertTimestamp;
@@ -121,7 +117,6 @@ private:
             selectedVert,
             dragging,
             arrowing,
-            hoverSelected,
-            useShader;
+            hoverSelected;
 };
 #endif

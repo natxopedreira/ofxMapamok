@@ -25,17 +25,18 @@ ofxMapamok::ofxMapamok(){
     selectedVert = false;
     hoverSelected = false;
     dragging = false;
-    useSmoothing = false;
     arrowing = false;
     
     setupMode   = SETUP_SELECT;
     refMode     = REFERENCE_AXIS;
     drawMode    = DRAW_OCCLUDED_WIREFRAME;
-    
-    useShader = false;
+        
+    faceColor.set(80, 155);
     
     objName = "mapamok";
     bEditMode = false;
+    
+    shader = NULL;
     
     init(0,0,ofGetWidth(),ofGetHeight());
 }
@@ -58,6 +59,7 @@ void ofxMapamok::update(){
                                   0, 0, 1);
         
         // generate flags
+        //
         int flags =
         CV_CALIB_USE_INTRINSIC_GUESS |
         //cvCALIB_FIX_PRINCIPAL_POINT |
@@ -97,11 +99,155 @@ void ofxMapamok::update(){
 
 // ------------------------------------------- RENDER
 
-void ofxMapamok::draw(ofTexture &texture){
+void ofxMapamok::draw(ofTexture *_texture){
     if( setupMode == SETUP_SELECT ) {
-		drawSelectionMode(texture);
+    
+		//  Init easyCam
+        //
+        cam.begin( (ofRectangle)*this );
+        
+        //  Reference
+        //
+        if(refMode == REFERENCE_AXIS)
+            ofDrawAxis(100);
+        else if (refMode == REFERENCE_GRID)
+            ofDrawGrid(100);
+        
+        //  Scale
+        //
+        ofScale(scale, scale, scale);
+        
+        render(_texture);
+        
+        if( setupMode ) {
+            imageMesh = getProjectedMesh(objectMesh);
+        }
+        
+        cam.end();
+        
+        if( setupMode ) {
+            ofPushStyle();
+            
+            // draw all points cyan small
+            //
+            ofSetColor( ofxCv::cyanPrint );
+            for(int i=0; i< imageMesh.getVertices().size(); i++){
+                if( inside(ofVec2f(imageMesh.getVertex(i).x,imageMesh.getVertex(i).y))){
+                    ofCircle(imageMesh.getVertex(i).x, imageMesh.getVertex(i).y, 2);
+                }
+            }
+            
+            // draw all reference points cyan
+            //
+            int n = referencePoints.size();
+            for(int i = 0; i < n; i++) {
+                if(referencePoints[i]) {
+                    drawLabeledPoint(i, imageMesh.getVertex(i), ofxCv::cyanPrint );
+                }
+            }
+            
+            // check to see if anything is selected
+            // draw hover point magenta
+            //
+            int choice;
+            float distance;
+            ofVec3f selected = getClosestPointOnMesh(imageMesh, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance);
+            if(!ofGetMousePressed() && distance < selectionRadius) {
+                hoverChoice = choice;
+                hoverSelected = true;
+                drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
+            } else {
+                hoverSelected = false;
+            }
+            
+            // draw selected point yellow
+            //
+            if( selectedVert ) {
+                int choice = selectionChoice;
+                ofVec2f selected = imageMesh.getVertex(choice);
+                drawLabeledPoint(choice, selected, ofxCv::yellowPrint, ofColor::white, ofColor::black);
+            }
+            
+            ofPopStyle();
+        }
+        
 	} else {
-		drawRenderMode(texture);
+		
+        glPushMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        
+        if(calibrationReady) {
+            intrinsics.loadProjectionMatrix(10, 2000);
+            ofxCv::applyMatrix(modelMatrix);
+            render(_texture);
+            if(setupMode) {
+                imageMesh = getProjectedMesh(objectMesh);
+            }
+        }
+        
+        glPopMatrix();
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        
+        if( setupMode ) {
+            ofPushStyle();
+            
+            // draw all reference points cyan
+            //
+            int n = referencePoints.size();
+            for(int i = 0; i < n; i++) {
+                if(referencePoints[i]) {
+                    drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::cyanPrint);
+                }
+            }
+            
+            // move points that need to be dragged
+            // draw selected yellow
+            //
+            int choice = selectionChoice;
+            if(selectedVert) {
+                referencePoints[choice] = true;
+                cv::Point2f& cur = imagePoints[choice];
+                if(cur == cv::Point2f()) {
+                    if(calibrationReady) {
+                        cur = ofxCv::toCv(ofVec2f(imageMesh.getVertex(choice)));
+                    } else {
+                        cur = cv::Point2f(ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY);
+                    }
+                }
+            }
+            if(dragging) {
+                cv::Point2f& cur = imagePoints[choice];
+                float rate = ofGetMousePressed(0) ? slowLerpRate : fastLerpRate;
+                cur = cv::Point2f(ofLerp(cur.x, ofGetAppPtr()->mouseX, rate), ofLerp(cur.y, ofGetAppPtr()->mouseY, rate));
+                drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
+                ofSetColor(ofColor::black);
+                ofRect( ofxCv::toOf(cur), 1, 1);
+            } else if(arrowing) {
+                cv::Point2f& cur = imagePoints[choice];
+                drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
+                ofSetColor(ofColor::black);
+                ofRect( ofxCv::toOf(cur), 1, 1);
+            } else {
+                // check to see if anything is selected
+                // draw hover magenta
+                float distance;
+                ofVec2f selected = ofxCv::toOf(getClosestPoint(imagePoints, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance));
+                if(!ofGetMousePressed() && referencePoints[choice] && distance < selectionRadius) {
+                    hoverChoice = choice;
+                    hoverSelected = true;
+                    drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
+                } else {
+                    hoverSelected = false;
+                }
+            }
+            
+            ofPopStyle();
+        }
+        
 	}
     
     if( setupMode != SETUP_NONE ) {
@@ -111,9 +257,13 @@ void ofxMapamok::draw(ofTexture &texture){
             ofNoFill();
             ofRect( (ofRectangle)*this );
             if ( setupMode == SETUP_CALIBRATE)
-                ofDrawBitmapString("CALIBRATE", x+width*0.5-30,y+15);
-            else if ( setupMode == SETUP_SELECT )
-                ofDrawBitmapString("SELECT", x+width*0.5-30,y+15);
+                ofDrawBitmapString("CALIBRATE the DOT", x+width*0.5-30,y+15);
+            else if ( setupMode == SETUP_SELECT ){
+                if (selectedVert)
+                    ofDrawBitmapString("PRESS SPACE to CALIBRATE", x+width*0.5-100,y+15);
+                else
+                    ofDrawBitmapString("CLICK ONE DOT", x+width*0.5-40,y+15);
+            }
             
             ofPopStyle();
         }
@@ -126,7 +276,7 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
     
 	glPushAttrib(GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
-	//glEnable(GL_DEPTH_TEST);
+    
 	ofVec2f tooltipOffset(5, -25);
 	ofSetColor(color);
 	float w = 40;
@@ -140,195 +290,59 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 	glPopAttrib();
 }
 
-void ofxMapamok::drawSelectionMode(ofTexture &texture) {
-	
-    //  Init easyCam
-    //
-	cam.begin( (ofRectangle)*this );
-    
-    //  Reference
-    //
-    if(refMode == REFERENCE_AXIS)
-        ofDrawAxis(100);
-    else if (refMode == REFERENCE_GRID)
-        ofDrawGrid(100);
-    
-    //  Scale
-    //
-	ofScale(scale, scale, scale);
-	
-	render(texture);
-    
-	if( setupMode != SETUP_NONE ) {
-		imageMesh = getProjectedMesh(objectMesh);
-	}
-    
-	cam.end();
-    
-	if( setupMode != SETUP_NONE ) {
-		// draw all points cyan small
-        //
-		//glPointSize(screenPointSize);
-		//glEnable(GL_POINT_SMOOTH);
-        
-        //  Hago esto para saber si el vertex esta dentro del viewport
-        //
-		ofSetColor( ofxCv::cyanPrint );
-        ofEnableSmoothing();
-        for(int i=0; i< imageMesh.getVertices().size(); i++){
-            if( inside(ofVec2f(imageMesh.getVertex(i).x,imageMesh.getVertex(i).y))){
-                ofCircle(imageMesh.getVertex(i).x, imageMesh.getVertex(i).y, 2);
-            }
-        }
-        ofDisableSmoothing();
-		//imageMesh.drawVertices();
-        
-		// draw all reference points cyan
-        //
-		int n = referencePoints.size();
-		for(int i = 0; i < n; i++) {
-			if(referencePoints[i]) {
-				drawLabeledPoint(i, imageMesh.getVertex(i), ofxCv::cyanPrint );
-			}
-		}
-		
-		// check to see if anything is selected
-		// draw hover point magenta
-        //
-		int choice;
-		float distance;
-		ofVec3f selected = getClosestPointOnMesh(imageMesh, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance);
-		if(!ofGetMousePressed() && distance < selectionRadius) {
-			hoverChoice = choice;
-			hoverSelected = true;
-			drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
-		} else {
-            hoverSelected = false;
-		}
-		
-		// draw selected point yellow
-        //
-		if(selectedVert) {
-			int choice = selectionChoice;
-			ofVec2f selected = imageMesh.getVertex(choice);
-			drawLabeledPoint(choice, selected, ofxCv::yellowPrint, ofColor::white, ofColor::black);
-		}
-	}
-}
-
-void ofxMapamok::drawRenderMode(ofTexture &texture) {
-	glPushMatrix();
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	
-	if(calibrationReady) {
-		intrinsics.loadProjectionMatrix(10, 2000);
-		ofxCv::applyMatrix(modelMatrix);
-		render(texture);
-		if(setupMode) {
-			imageMesh = getProjectedMesh(objectMesh);
-		}
-	}
-	
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW);
-	
-	if(setupMode) {
-		// draw all reference points cyan
-		int n = referencePoints.size();
-		for(int i = 0; i < n; i++) {
-			if(referencePoints[i]) {
-				drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::cyanPrint);
-			}
-		}
-		
-		// move points that need to be dragged
-		// draw selected yellow
-		int choice = selectionChoice;
-		if(selectedVert) {
-			referencePoints[choice] = true;
-            cv::Point2f& cur = imagePoints[choice];
-			if(cur == cv::Point2f()) {
-				if(calibrationReady) {
-					cur = ofxCv::toCv(ofVec2f(imageMesh.getVertex(choice)));
-				} else {
-					cur = cv::Point2f(ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY);
-				}
-			}
-		}
-		if(dragging) {
-            cv::Point2f& cur = imagePoints[choice];
-			float rate = ofGetMousePressed(0) ? slowLerpRate : fastLerpRate;
-			cur = cv::Point2f(ofLerp(cur.x, ofGetAppPtr()->mouseX, rate), ofLerp(cur.y, ofGetAppPtr()->mouseY, rate));
-			drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
-			ofSetColor(ofColor::black);
-			ofRect( ofxCv::toOf(cur), 1, 1);
-		} else if(arrowing) {
-            cv::Point2f& cur = imagePoints[choice];
-			drawLabeledPoint(choice, ofxCv::toOf(cur), ofxCv::yellowPrint, ofColor::white, ofColor::black);
-			ofSetColor(ofColor::black);
-			ofRect( ofxCv::toOf(cur), 1, 1);
-        } else {
-			// check to see if anything is selected
-			// draw hover magenta
-			float distance;
-			ofVec2f selected = ofxCv::toOf(getClosestPoint(imagePoints, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance));
-			if(!ofGetMousePressed() && referencePoints[choice] && distance < selectionRadius) {
-				hoverChoice = choice;
-                hoverSelected = true;
-				drawLabeledPoint(choice, selected, ofxCv::magentaPrint);
-			} else {
-				hoverSelected = false;
-			}
-		}
-	}
-}
-
-void ofxMapamok::render(ofTexture &texture){
+void ofxMapamok::render(ofTexture *_texture){
     
     ofPushStyle();
 	ofSetLineWidth(lineWidth);
-	if(useSmoothing) {
-		ofEnableSmoothing();
-	} else {
-		ofDisableSmoothing();
-	}
 	
 	ofSetColor(255);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glEnable(GL_DEPTH_TEST);
-    if(useShader) {
-		shader.begin();
-		shader.setUniform1f("elapsedTime", ofGetElapsedTimef());
-		shader.end();
+    if(shader != NULL) {
+		shader->begin();
+		shader->setUniform1f("elapsedTime", ofGetElapsedTimef());
+		shader->end();
 	}
-    
     
 	switch(drawMode) {
 		case DRAW_FACES:
             
-			if(useShader) shader.begin();
+			if(shader != NULL)
+                shader->begin();
+            
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
-            texture.bind();
+            
+            if (_texture != NULL)
+                _texture->bind();
+            
 			objectMesh.drawFaces();
-            texture.unbind();
-			if(useShader) shader.end();
+            
+            if (_texture != NULL)
+                _texture->unbind();
+            
+			if( shader != NULL )
+                shader->end();
             
 			break;
+            
 		case DRAW_FULL_WIREFRAME:
-			if(useShader) shader.begin();
+			
+            if(shader != NULL)
+                shader->begin();
+            
 			objectMesh.drawWireframe();
-			if(useShader) shader.end();
+			
+            if( shader != NULL )
+                shader->end();
 			break;
+            
 		case DRAW_OUTLINE_WIREFRAME:
-            LineArt::draw(objectMesh, true, faceColor, useShader ? &shader : NULL);
+            LineArt::draw(objectMesh, true, faceColor, shader);
 			break;
+            
 		case DRAW_OCCLUDED_WIREFRAME:
-            LineArt::draw(objectMesh, false, faceColor, useShader ? &shader : NULL);
+            LineArt::draw(objectMesh, false, faceColor, shader);
 			break;
 	}
 	glPopAttrib();
@@ -354,48 +368,74 @@ void ofxMapamok::_mouseReleased(ofMouseEventArgs &e){
 }
 
 void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
-    if(e.key == OF_KEY_LEFT || e.key == OF_KEY_UP || e.key == OF_KEY_RIGHT|| e.key == OF_KEY_DOWN){
-		int choice = selectionChoice;
-        arrowing = true;
-		if(choice > 0){
-            cv::Point2f& cur = imagePoints[choice];
-			switch(e.key) {
-				case OF_KEY_LEFT: cur.x -= 1; break;
-				case OF_KEY_RIGHT: cur.x += 1; break;
-				case OF_KEY_UP: cur.y -= 1; break;
-				case OF_KEY_DOWN: cur.y += 1; break;
-			}
-		}
-	} else {
-		arrowing = false;
-	}
+    if (inside(ofGetMouseX(), ofGetMouseY())){
     
-	if(e.key == OF_KEY_BACKSPACE) { // delete selected
-		if(selectedVert) {
-			selectedVert = false;
-			int choice = selectionChoice;
-			referencePoints[choice] = false;
-			imagePoints[choice] = cv::Point2f();
-		}
-	}
-	
-    if(e.key == '\n') { // deselect
-		selectedVert = false;
-	}
-	
-    if(e.key == ' ') { // toggle render/select mode
-        if (setupMode == SETUP_NONE){
-            setupMode = SETUP_SELECT;
-        } else if (setupMode == SETUP_SELECT){
-            setupMode = SETUP_CALIBRATE;
-        } else if (setupMode == SETUP_CALIBRATE){
-            if (calibrationReady)
-                setupMode = SETUP_NONE;
-            else
-                setupMode = SETUP_SELECT;
+        if(e.key == OF_KEY_LEFT || e.key == OF_KEY_UP || e.key == OF_KEY_RIGHT|| e.key == OF_KEY_DOWN){
+            int choice = selectionChoice;
+            arrowing = true;
+            if(choice > 0){
+                cv::Point2f& cur = imagePoints[choice];
+                switch(e.key) {
+                    case OF_KEY_LEFT: cur.x -= 1; break;
+                    case OF_KEY_RIGHT: cur.x += 1; break;
+                    case OF_KEY_UP: cur.y -= 1; break;
+                    case OF_KEY_DOWN: cur.y += 1; break;
+                }
+            }
+        } else {
+            arrowing = false;
         }
-	}
+        
+        //  Delete Selected
+        //
+        if(e.key == OF_KEY_BACKSPACE) {
+            if(selectedVert) {
+                selectedVert = false;
+                int choice = selectionChoice;
+                referencePoints[choice] = false;
+                imagePoints[choice] = cv::Point2f();
+            }
+        }
+        
+        //  De-Select
+        //
+        if(e.key == '\n') {
+            selectedVert = false;
+        }
+        
+        //  Toggle SETUP Mode
+        //
+        if(e.key == ' ') {
+            if (setupMode == SETUP_NONE){
+                setupMode = SETUP_SELECT;
+            } else if (setupMode == SETUP_SELECT){
+                if (selectedVert)
+                    setupMode = SETUP_CALIBRATE;
+            } else if (setupMode == SETUP_CALIBRATE){
+                if (calibrationReady)
+                    setupMode = SETUP_NONE;
+                else
+                    setupMode = SETUP_SELECT;
+            }
+        }
+        
+        //  Toggle Drawing Mode
+        //
+        if(e.key == '\t') {
+            if (drawMode == DRAW_FACES){
+                drawMode = DRAW_FULL_WIREFRAME;
+            } else if (drawMode == DRAW_FULL_WIREFRAME){
+                drawMode = DRAW_OUTLINE_WIREFRAME;
+            } else if (drawMode == DRAW_OUTLINE_WIREFRAME){
+                drawMode = DRAW_OCCLUDED_WIREFRAME;
+            } else if (drawMode == DRAW_OCCLUDED_WIREFRAME){
+                drawMode = DRAW_FACES;
+            }
+        }
+    }
     
+    //  ViewPort Edit Mode
+    //
     if(e.key == 'e'){
         bEditMode = !bEditMode;
     }
@@ -403,11 +443,6 @@ void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
 
 
 // --------------------------------------------------- LOAD & SAVE
-
-void ofxMapamok::loadShader(string _shader){
-    useShader = shader.load(_shader);
-}
-
 bool ofxMapamok::loadMesh(string _daeModel, int _textWidth, int _textHeight){
     bool fileLoaded = false;
     
