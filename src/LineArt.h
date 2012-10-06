@@ -11,6 +11,7 @@
 */
 
 namespace LineArt {
+    
 	inline void drawMesh(ofMesh& mesh, bool useNormals, bool useColors) {
 		glEnableClientState(GL_VERTEX_ARRAY);
 		glVertexPointer(3, GL_FLOAT, sizeof(ofVec3f), mesh.getVerticesPointer());
@@ -30,6 +31,7 @@ namespace LineArt {
 		glDisableClientState(GL_NORMAL_ARRAY);
 		glDisableClientState(GL_COLOR_ARRAY);
 	}
+    
 	inline void draw(ofMesh& mesh, bool depthEdgesOnly = true, ofColor fill = ofColor(0, 0, 0, 0), ofShader* shader = NULL) {
 		ofColor stroke = ofGetStyle().color;
 		
