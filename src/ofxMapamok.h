@@ -26,6 +26,25 @@
 #include "ofxCv.h"
 #include "ofxXmlSettings.h"
 
+enum SetupMode{
+    SETUP_NONE,
+    SETUP_SELECT,
+    SETUP_CALIBRATE
+};
+
+enum DrawMode{
+    DRAW_FACES,
+    DRAW_FULL_WIREFRAME,
+    DRAW_OUTLINE_WIREFRAME,
+    DRAW_OCCLUDED_WIREFRAME
+};
+
+enum RefMode{
+    REFERENCE_NONE,
+    REFERENCE_AXIS,
+    REFERENCE_GRID
+};
+
 class ofxMapamok : public ofxSmartViewPort {
 public:
     ofxMapamok();
@@ -43,20 +62,44 @@ public:
     void draw(ofTexture &texture);
     void drawRenderMode(ofTexture &texture);
     void drawSelectionMode(ofTexture &texture);
-	void drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg = ofColor::black, ofColor fg = ofColor::white);
 	
-    //  Objects
+    //  Properties
     //
+    RefMode     refMode;
+    DrawMode    drawMode;
+    SetupMode   setupMode;
+    
+    ofColor     faceColor;
+    
+    float       slowLerpRate,
+                fastLerpRate,
+                scale;
+    
+    int         textWidth,
+                textHeight,
+                lineWidth,
+                selectionRadius,
+                screenPointSize,
+                selectedPointSize;
+	
+	bool        useSmoothing;
+    
+private:
+    void    _mousePressed(ofMouseEventArgs &e);
+    void    _mouseReleased(ofMouseEventArgs &e);
+    void    _keyPressed(ofKeyEventArgs &e);
+    
+    void    drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg = ofColor::black, ofColor fg = ofColor::white);
+    void    render(ofTexture &texture);
+    
     ofEasyCam           cam;
 	ofVboMesh           objectMesh;
 	ofMesh              imageMesh;
     
     ofShader            shader;
     
-    string              modelFile;
-    
     Poco::Timestamp     lastFragTimestamp,
-                        lastVertTimestamp;
+    lastVertTimestamp;
     
     cv::Mat             rvec,tvec;
 	ofMatrix4x4         modelMatrix;
@@ -68,39 +111,17 @@ public:
 	vector<cv::Point2f> imagePoints;
 	vector<bool>        referencePoints;
     
-    ofColor             faceColor;
+    string  modelFile;
     
-    float               slowLerpRate,
-                        fastLerpRate,
-                        scale;
+    int     selectionChoice,
+            hoverChoice,
+            aov;
     
-    int                 textWidth,
-                        textHeight,
-                        lineWidth,
-                        drawMode,
-                        selectionChoice,
-                        hoverChoice,
-                        selectionRadius,
-                        screenPointSize,
-                        aov,
-                        selectedPointSize;
-	
-	bool                calibrationReady,
-                        selectionMode,
-                        useSmoothing,
-                        setupMode,
-                        selectedVert,
-                        dragging,
-                        arrowing,
-                        hoverSelected,
-                        showAxis,
-                        useShader;
-    
-private:
-    void    _mousePressed(ofMouseEventArgs &e);
-    void    _mouseReleased(ofMouseEventArgs &e);
-    void    _keyPressed(ofKeyEventArgs &e);
-    
-    void    render(ofTexture &texture);
+    bool    calibrationReady,
+            selectedVert,
+            dragging,
+            arrowing,
+            hoverSelected,
+            useShader;
 };
 #endif

@@ -12,7 +12,7 @@
 
 ofxMapamok::ofxMapamok(){
     lineWidth = 1;
-    drawMode = 2;
+    
     selectionRadius = 10;
     screenPointSize = 2;
     selectedPointSize = 3;
@@ -28,9 +28,9 @@ ofxMapamok::ofxMapamok(){
     useSmoothing = false;
     arrowing = false;
     
-    setupMode = true;
-    selectionMode = true;
-    showAxis = true;
+    setupMode   = SETUP_SELECT;
+    refMode     = REFERENCE_AXIS;
+    drawMode    = DRAW_OCCLUDED_WIREFRAME;
     
     useShader = false;
     
@@ -43,12 +43,12 @@ ofxMapamok::ofxMapamok(){
 //  ------------------------------------------ MAIN LOOP
 
 void ofxMapamok::update(){
-	if(selectionMode) {
+	if( setupMode == SETUP_SELECT ) {
 		cam.enableMouseInput();
 	} else {
 		
         // generate camera matrix given aov guess
-        // float aov = getf("aov");
+        //
         cv::Size2i imageSize(ofGetWidth(), ofGetHeight());
         float f = imageSize.width * ofDegToRad(aov); // i think this is wrong, but it's optimized out anyway
         cv::Point2f c = cv::Point2f(imageSize) * (1. / 2);
@@ -98,11 +98,26 @@ void ofxMapamok::update(){
 // ------------------------------------------- RENDER
 
 void ofxMapamok::draw(ofTexture &texture){
-    if(selectionMode) {
+    if( setupMode == SETUP_SELECT ) {
 		drawSelectionMode(texture);
 	} else {
 		drawRenderMode(texture);
 	}
+    
+    if( setupMode != SETUP_NONE ) {
+        if (inside(ofGetMouseX(), ofGetMouseY())){
+            ofPushStyle();
+            ofSetColor(255,100);
+            ofNoFill();
+            ofRect( (ofRectangle)*this );
+            if ( setupMode == SETUP_CALIBRATE)
+                ofDrawBitmapString("CALIBRATE", x+width*0.5-30,y+15);
+            else if ( setupMode == SETUP_SELECT )
+                ofDrawBitmapString("SELECT", x+width*0.5-30,y+15);
+            
+            ofPopStyle();
+        }
+    }
 }
 
 void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, ofColor bg, ofColor fg) {
@@ -126,29 +141,33 @@ void ofxMapamok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 }
 
 void ofxMapamok::drawSelectionMode(ofTexture &texture) {
-	ofSetColor(255);
+	
+    //  Init easyCam
+    //
 	cam.begin( (ofRectangle)*this );
     
-    if(showAxis){
+    //  Reference
+    //
+    if(refMode == REFERENCE_AXIS)
+        ofDrawAxis(100);
+    else if (refMode == REFERENCE_GRID)
         ofDrawGrid(100);
-    }
+    
+    //  Scale
+    //
 	ofScale(scale, scale, scale);
 	
 	render(texture);
     
-	if(setupMode) {
+	if( setupMode != SETUP_NONE ) {
 		imageMesh = getProjectedMesh(objectMesh);
 	}
+    
 	cam.end();
     
-    ofPushStyle();
-    ofSetColor(255,255,255);
-    ofNoFill();
-    ofRect( (ofRectangle)*this );
-    ofPopStyle();
-	
-	if(setupMode) {
+	if( setupMode != SETUP_NONE ) {
 		// draw all points cyan small
+        //
 		//glPointSize(screenPointSize);
 		//glEnable(GL_POINT_SMOOTH);
         
@@ -165,6 +184,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		//imageMesh.drawVertices();
         
 		// draw all reference points cyan
+        //
 		int n = referencePoints.size();
 		for(int i = 0; i < n; i++) {
 			if(referencePoints[i]) {
@@ -174,6 +194,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		
 		// check to see if anything is selected
 		// draw hover point magenta
+        //
 		int choice;
 		float distance;
 		ofVec3f selected = getClosestPointOnMesh(imageMesh, ofGetAppPtr()->mouseX, ofGetAppPtr()->mouseY, &choice, &distance);
@@ -186,6 +207,7 @@ void ofxMapamok::drawSelectionMode(ofTexture &texture) {
 		}
 		
 		// draw selected point yellow
+        //
 		if(selectedVert) {
 			int choice = selectionChoice;
 			ofVec2f selected = imageMesh.getVertex(choice);
@@ -286,24 +308,26 @@ void ofxMapamok::render(ofTexture &texture){
     
     
 	switch(drawMode) {
-		case 0: // faces
-			//if(useShader) shader.begin();
+		case DRAW_FACES:
+            
+			if(useShader) shader.begin();
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
             texture.bind();
 			objectMesh.drawFaces();
             texture.unbind();
-			//if(useShader) shader.end();
+			if(useShader) shader.end();
+            
 			break;
-		case 1: // fullWireframe
+		case DRAW_FULL_WIREFRAME:
 			if(useShader) shader.begin();
 			objectMesh.drawWireframe();
 			if(useShader) shader.end();
 			break;
-		case 2: // outlineWireframe
+		case DRAW_OUTLINE_WIREFRAME:
             LineArt::draw(objectMesh, true, faceColor, useShader ? &shader : NULL);
 			break;
-		case 3: // occludedWireframe
+		case DRAW_OCCLUDED_WIREFRAME:
             LineArt::draw(objectMesh, false, faceColor, useShader ? &shader : NULL);
 			break;
 	}
@@ -345,6 +369,7 @@ void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
 	} else {
 		arrowing = false;
 	}
+    
 	if(e.key == OF_KEY_BACKSPACE) { // delete selected
 		if(selectedVert) {
 			selectedVert = false;
@@ -353,12 +378,24 @@ void ofxMapamok::_keyPressed(ofKeyEventArgs &e){
 			imagePoints[choice] = cv::Point2f();
 		}
 	}
-	if(e.key == '\n') { // deselect
+	
+    if(e.key == '\n') { // deselect
 		selectedVert = false;
 	}
-	if(e.key == ' ') { // toggle render/select mode
-        selectionMode = !selectionMode;
+	
+    if(e.key == ' ') { // toggle render/select mode
+        if (setupMode == SETUP_NONE){
+            setupMode = SETUP_SELECT;
+        } else if (setupMode == SETUP_SELECT){
+            setupMode = SETUP_CALIBRATE;
+        } else if (setupMode == SETUP_CALIBRATE){
+            if (calibrationReady)
+                setupMode = SETUP_NONE;
+            else
+                setupMode = SETUP_SELECT;
+        }
 	}
+    
     if(e.key == 'e'){
         bEditMode = !bEditMode;
     }
