@@ -459,7 +459,7 @@ void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
     
     //  ViewPort Edit Mode
     //
-    if(e.key == 'e'){
+    if(e.key == 'E'){
         bEditMode = !bEditMode;
     }
 }

@@ -17,21 +17,22 @@ class ofxSmartViewPort : public ofRectangle {
 public:
     ofxSmartViewPort();
     
-    virtual bool    loadSettings(string _fileConfig = "config.xml");
-    virtual bool    saveSettings(string _fileConfig = "config.xml");
+    virtual bool    loadSettings(string _fileConfig = "none");
+    virtual bool    saveSettings(string _fileConfig = "none");
     
     virtual void    init(int _x = -1, int _y = -1, int _width = -1, int _height = -1);
  
+    string          objName;
     bool            bEditMode;
 
 protected:
-    virtual void    _mousePressed(ofMouseEventArgs &e) = 0;
+    virtual void    _mousePressed(ofMouseEventArgs &e);
     virtual void    _mouseDragged(ofMouseEventArgs &e);
     virtual void    _mouseReleased(ofMouseEventArgs &e);
-    virtual void    _keyPressed(ofKeyEventArgs &e) = 0;
+    virtual void    _keyPressed(ofKeyEventArgs &e);
     virtual void    _draw(ofEventArgs &e);
     
-    string  objName;
+    string          saveSettingsFile;
 };
 
 #endif

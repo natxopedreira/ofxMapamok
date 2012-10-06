@@ -12,6 +12,7 @@ ofxSmartViewPort::ofxSmartViewPort(){
     objName = "none";
     
     bEditMode = false;
+    saveSettingsFile = "viewPort.xml";
     
     //  Eventos de Mouse
     //
@@ -25,10 +26,13 @@ ofxSmartViewPort::ofxSmartViewPort(){
 bool ofxSmartViewPort::loadSettings(string _fileConfig){
     bool fileFound = false;
     
-    ofxXmlSettings XML;
+    if (_fileConfig == "none")
+    _fileConfig = saveSettingsFile;
     
+    ofxXmlSettings XML;
     if (XML.loadFile(_fileConfig)){
         fileFound = true;
+        saveSettingsFile = _fileConfig;
         
         x = XML.getValue(objName+":area:x", 0);
         y = XML.getValue(objName+":area:y", 0);
@@ -45,8 +49,10 @@ bool ofxSmartViewPort::saveSettings(string _fileConfig){
     
     bool fileFound = false;
     
-    ofxXmlSettings XML;
+    if (_fileConfig == "none")
+        _fileConfig = saveSettingsFile;
     
+    ofxXmlSettings XML;
     if (XML.loadFile(_fileConfig)){
         
         if ( XML.pushTag(objName) ){
@@ -111,6 +117,10 @@ void ofxSmartViewPort::_draw(ofEventArgs &e){
 }
 
 //----------------------------------------------------------- Mouse
+void ofxSmartViewPort::_mousePressed(ofMouseEventArgs &e){
+    
+};
+
 void ofxSmartViewPort::_mouseDragged(ofMouseEventArgs &e){
     ofPoint mouse = ofPoint(e.x,e.y);
     
