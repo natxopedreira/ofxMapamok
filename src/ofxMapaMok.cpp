@@ -223,7 +223,11 @@ void ofxMapaMok::draw(ofTexture *_texture){
             int n = referencePoints.size();
             for(int i = 0; i < n; i++) {
                 if(referencePoints[i]) {
-                    drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::cyanPrint);
+					if(i == selectionChoice){
+						drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::yellowPrint, ofColor::white, ofColor::black);
+					}else{
+						drawLabeledPoint(i, ofxCv::toOf(imagePoints[i]), ofxCv::cyanPrint);
+					}
                 }
             }
             
