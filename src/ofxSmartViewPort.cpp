@@ -12,6 +12,8 @@ ofxSmartViewPort::ofxSmartViewPort(){
     objName = "none";
     
     bEditMode = false;
+	dragging  = false;
+	scaling   = false;
     saveSettingsFile = "viewPort.xml";
     
     //  Eventos de Mouse
@@ -94,8 +96,22 @@ void ofxSmartViewPort::init(int _x, int _y, int _width, int _height){
 void ofxSmartViewPort::_draw(ofEventArgs &e){
     //  Draggable area-boxes for Edit modes
     //
+	
+	
+	
     if ( bEditMode ){
-        ofPushStyle();
+		float rate = .6;
+		if(dragging){
+			x = ofLerp(x, ofGetAppPtr()->mouseX, rate);
+			y = ofLerp(y, ofGetAppPtr()->mouseY, rate);
+		}
+		if(scaling){
+			width = ofLerp(width, ofGetAppPtr()->mouseX - x, rate);
+			height = ofLerp(height, ofGetAppPtr()->mouseY - y, rate);
+			//width += ofGetAppPtr()->mouseX - x - width;
+			//height += e.y - y - height;
+		}
+		ofPushStyle();
         ofPushMatrix();
         ofTranslate(x, y);
         
@@ -110,7 +126,8 @@ void ofxSmartViewPort::_draw(ofEventArgs &e){
         ofRect(width-7,height-7,14,14);
         ofSetColor(245, 58, 135,255);
         ofDrawBitmapString(objName + " Area",15,15);
-        
+		ofDrawBitmapString("x:"+ofToString((int)x)+" y:"+ofToString((int)y),15,30);
+        ofDrawBitmapString("width:"+ofToString((int)width)+" height:"+ofToString((int)height),15,45);
         ofPopMatrix();
         ofPopStyle();
     }
@@ -119,36 +136,31 @@ void ofxSmartViewPort::_draw(ofEventArgs &e){
 //----------------------------------------------------------- Mouse
 void ofxSmartViewPort::_mousePressed(ofMouseEventArgs &e){
     
+	if(bEditMode){
+		ofPoint mouse = ofPoint(e.x,e.y);
+		
+		ofPoint A = ofPoint(x,y);
+        ofPoint B = ofPoint(x+width,y+height);
+		
+		
+		if ( A.distance(mouse) < 20 ){
+			dragging = true;
+		}
+		if ( B.distance(mouse) < 20 ){
+			scaling = true;
+		}
+		
+	}
+	
 };
 
 void ofxSmartViewPort::_mouseDragged(ofMouseEventArgs &e){
-    ofPoint mouse = ofPoint(e.x,e.y);
-    
-    if (bEditMode){
-        //  Drag coorners of graffitiArea
-        //
-        ofPoint A = ofPoint(x,y);
-        
-        ofPoint B = ofPoint(x+width,y+height);
-        
-        if ( A.distance(mouse) < 20 ){
-            x += e.x - x;
-            y += e.y - y;
-            
-            this->init(x,y, width, height);
-        }
-        
-        if ( B.distance(mouse) < 20 ){
-            width += e.x - x - width;
-            height += e.y - y - height;
-            
-            this->init(x,y, width, height);
-        }
-    }
 }
 
 void ofxSmartViewPort::_mouseReleased(ofMouseEventArgs &e){
     if (bEditMode){
+		if(scaling) scaling = false;
+		if(dragging) dragging = false;
         init(x, y, width, height);
     }
 }

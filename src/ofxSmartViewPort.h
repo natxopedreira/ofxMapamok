@@ -24,6 +24,8 @@ public:
  
     string          objName;
     bool            bEditMode;
+	bool			dragging;
+	bool			scaling;
 
 protected:
     virtual void    _mousePressed(ofMouseEventArgs &e);
