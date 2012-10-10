@@ -569,7 +569,7 @@ bool ofxMapaMok::saveCalibration(string _xmlfile) {
     //  Si no se le pasa un .xml guarda la calibración dentro del .dae
     //
     if (_xmlfile == "none")
-        _xmlfile == modelFile;
+        _xmlfile = modelFile;
     
     //  Guardamos a nuestro estilo la calibración
     //
