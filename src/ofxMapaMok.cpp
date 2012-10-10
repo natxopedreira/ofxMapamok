@@ -34,7 +34,7 @@ ofxMapaMok::ofxMapaMok(){
     dragging = false;
     arrowing = false;
     shader = NULL;
-    
+    useLights = true;
     //  ViewPort default setup
     //
     init(0,0,ofGetWidth(),ofGetHeight());
@@ -321,7 +321,12 @@ void ofxMapaMok::render(ofTexture *_texture){
     
     ofPushStyle();
 	ofSetLineWidth(lineWidth);
-	
+	if(useLights) {
+		light.enable();
+		ofEnableLighting();
+		glShadeModel(GL_SMOOTH);
+		glEnable(GL_NORMALIZE);
+	}
 	ofSetColor(255);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glEnable(GL_DEPTH_TEST);
@@ -373,6 +378,9 @@ void ofxMapaMok::render(ofTexture *_texture){
 			break;
 	}
 	glPopAttrib();
+    if(useLights) {
+		ofDisableLighting();
+	}
 	ofPopStyle();
 }
 
@@ -433,6 +441,12 @@ void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
         //  Toggle SETUP Mode
         //
         if(e.key == ' ') {
+            if (setupMode == SETUP_SELECT){
+                setupMode = SETUP_CALIBRATE;
+            }else if (setupMode == SETUP_CALIBRATE){
+                    setupMode = SETUP_SELECT;
+            }
+            /*
             if (setupMode == SETUP_NONE){
                 setupMode = SETUP_SELECT;
             } else if (setupMode == SETUP_SELECT){
@@ -443,7 +457,7 @@ void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
                     setupMode = SETUP_NONE;
                 else
                     setupMode = SETUP_SELECT;
-            }
+            }*/
         }
         
         //  Toggle Drawing Mode

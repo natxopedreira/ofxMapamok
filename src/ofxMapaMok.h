@@ -81,6 +81,8 @@ public:
                 selectionRadius,
                 screenPointSize,
                 selectedPointSize;
+    
+    bool        useLights;
 	
 private:
     void    _mousePressed(ofMouseEventArgs &e);
@@ -93,6 +95,8 @@ private:
     ofEasyCam           cam;
 	ofVboMesh           objectMesh;
 	ofMesh              imageMesh;
+    
+    ofLight             light;
     
     ofShader            *shader;
     
