@@ -96,9 +96,7 @@ void ofxSmartViewPort::init(int _x, int _y, int _width, int _height){
 void ofxSmartViewPort::_draw(ofEventArgs &e){
     //  Draggable area-boxes for Edit modes
     //
-	
-	
-	
+
     if ( bEditMode ){
 		float rate = .6;
 		if(dragging){

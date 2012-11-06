@@ -35,9 +35,10 @@ ofxMapaMok::ofxMapaMok(){
     arrowing = false;
     shader = NULL;
     useLights = true;
+    
     //  ViewPort default setup
     //
-    init(0,0,ofGetWidth(),ofGetHeight());
+    init(0,0,ofGetScreenWidth(),ofGetScreenHeight());
     objName = "mapamok";
     bEditMode = false;
 }
@@ -55,6 +56,7 @@ void ofxMapaMok::update(){
         //  Generate camera matrix given aov guess
         //
         cv::Size2i imageSize(ofGetWidth(), ofGetHeight());
+        
         float f = imageSize.width * ofDegToRad(aov); // i think this is wrong, but it's optimized out anyway
         cv::Point2f c = cv::Point2f(imageSize) * (1. / 2);
         cv::Mat1d cameraMatrix = (cv::Mat1d(3, 3) <<
@@ -66,7 +68,7 @@ void ofxMapaMok::update(){
         //
         int flags =
         CV_CALIB_USE_INTRINSIC_GUESS |
-        //cvCALIB_FIX_PRINCIPAL_POINT |
+        //CV_CALIB_FIX_PRINCIPAL_POINT |
         CV_CALIB_FIX_ASPECT_RATIO |
         CV_CALIB_FIX_K1 |
         CV_CALIB_FIX_K2 |
@@ -103,7 +105,7 @@ void ofxMapaMok::update(){
 // ------------------------------------------- RENDER
 
 void ofxMapaMok::draw(ofTexture *_texture){
-    
+
     if (_texture != NULL)
         if ((_texture->getWidth() != textWidth ) ||
             (_texture->getHeight() != textHeight) )
@@ -320,6 +322,8 @@ void ofxMapaMok::drawLabeledPoint(int label, ofVec2f position, ofColor color, of
 void ofxMapaMok::render(ofTexture *_texture){
     
     ofPushStyle();
+    ofPushMatrix();
+    
 	ofSetLineWidth(lineWidth);
 	if(useLights) {
 		light.enable();
@@ -381,6 +385,8 @@ void ofxMapaMok::render(ofTexture *_texture){
     if(useLights) {
 		ofDisableLighting();
 	}
+    
+    ofPopMatrix();
 	ofPopStyle();
 }
 
@@ -441,12 +447,14 @@ void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
         //  Toggle SETUP Mode
         //
         if(e.key == ' ') {
+            /*
             if (setupMode == SETUP_SELECT){
                 setupMode = SETUP_CALIBRATE;
-            }else if (setupMode == SETUP_CALIBRATE){
+            } else if (setupMode == SETUP_CALIBRATE){
                     setupMode = SETUP_SELECT;
             }
-            /*
+            */
+            
             if (setupMode == SETUP_NONE){
                 setupMode = SETUP_SELECT;
             } else if (setupMode == SETUP_SELECT){
@@ -457,7 +465,7 @@ void ofxMapaMok::_keyPressed(ofKeyEventArgs &e){
                     setupMode = SETUP_NONE;
                 else
                     setupMode = SETUP_SELECT;
-            }*/
+            }
         }
         
         //  Toggle Drawing Mode

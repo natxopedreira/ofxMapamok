@@ -1,0 +1,7 @@
+/.DS_Store
+/example-canvas/.DS_Store
+/example-canvas/Project.xcconfig
+/example-canvas/openFrameworks-Info.plist
+/example-canvas/example-canvas.xcodeproj/
+/example-canvas/bin/example-canvasDebug.app/
+/example-canvas/addons.make
