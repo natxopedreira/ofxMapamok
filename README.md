@@ -13,6 +13,7 @@ This an addon version of [Kyle McDonald's](http://kylemcdonald.net/) MapaMok. Th
 
 - [ofxCV](https://github.com/kylemcdonald/ofxCv)
 
+- [ofxProCamToolkit](https://github.com/YCAMInterlab/ProCamToolkit/tree/master/SharedCode)
 
 ## Notes
 
